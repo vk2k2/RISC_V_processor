@@ -1,0 +1,89 @@
+    .text
+    .globl _start
+
+_start:
+    # Initialize counter register to 0 at the start
+    li   s11, 32            # change to 128
+
+main_loop:
+    
+    addi s11, s11, 1       # Increment counter (s11)      # only let s11 go upto 511 then go back to 128
+
+    call check_inputs      # Check button presses and store relevant values in s3, s5, etc.
+
+    mv a0, s11             # Move counter (s11) to a0 (dividend)
+    mv a1, s3              # Move s3 (divisor) to a1  
+    andi  a1, a1, 2047    
+    call rem               # Call the remainder subroutine, remainder will be in a0
+
+    beqz a0, toggle_mem_3  # If remainder is 0, jump to toggle memory[3]
+
+    j skip_toggle_mem_3     # Otherwise, skip toggling memory[3]
+
+toggle_mem_3:
+    xori s4, s4, 1         # XOR s4 with 1 (toggle the value)
+    sw s4, 3(zero)           # Store the result back to memory[3]
+
+skip_toggle_mem_3:
+
+    mv a0, s11             # Move counter (s11) to a0 (dividend)
+    mv a1, s5              # Move s5 (divisor) to a1
+    andi  a1, a1, 2047 
+    call rem               # Call the remainder subroutine, remainder will be in a0
+
+    beqz a0, toggle_mem_7  # If remainder is 0, jump to toggle memory[7]
+
+    j skip_toggle_mem_7     # Otherwise, skip toggling memory[7]
+
+toggle_mem_7:
+    xori s6, s6, 1         # XOR s6 with 1 (toggle the value)
+    sw s6, 7(zero)           # Store the result back to memory[7]
+
+skip_toggle_mem_7:
+
+    j main_loop
+
+check_inputs:
+
+    lw   t1, 19(zero)      # Load the button states into t1 (32-bit value)
+    li   t2, 65536         # Check bit 16
+    and   t3, t1, t2       # t3 = t1 & 65536 (Button 1 pressed?)
+    beqz  t3, button_1_unpressed
+    mv   s3, t1            # Move the switch value to register s3
+button_1_unpressed:
+
+    li   t2, 131072        # Check bit 17
+    and   t3, t1, t2       # t3 = t1 & 131072 (Button 2 pressed?)
+    beqz  t3, button_2_unpressed
+    mv   s5, t1            # Move the switch value to register s5
+button_2_unpressed:
+
+    # Check if Button 3 is pressed (bit 18 of t1)
+    li   t2, 262144        # Check bit 18
+    and   t3, t1, t2       # t3 = t1 & 262144 (Button 3 pressed?)
+    beqz  t3, button_3_unpressed   
+    mv   s2, t1            # Move the switch value to register s2
+    sw s2, 0(zero)
+button_3_unpressed:
+
+    # Check if Button 4 is pressed (bit 19 of t1)
+    li   t2, 524288        # Check bit 19
+    and   t3, t1, t2       # t3 = t1 & 524288 (Button 4 pressed?)
+    beqz  t3, button_4_unpressed
+    mv   s1, t1            # Move the switch value to register s1
+    sw s1, 11(zero)
+    sw s1, 15(zero)
+button_4_unpressed:
+
+    ret                     # Return to the main loop after checking buttons
+
+rem:
+    beq a1, x0, rem_done          # If divisor (a1) is zero, jump to done
+
+    rem_loop:
+        blt a0, a1, rem_done      # If dividend (a0) < divisor (a1), jump to done
+        sub a0, a0, a1            # a0 = a0 - a1 (dividend -= divisor)
+        j rem_loop                 # Jump back to the loop
+
+    rem_done:
+    ret                         # Return with the remainder in a0
